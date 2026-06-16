@@ -1,0 +1,302 @@
+openapi: 3.1.0
+info:
+  title: RMSoft OS — Dashboard API
+  version: 0.1.0
+  description: |
+    Backend for RMSoft OS Pixel 8 ROM. Used by the on-phone enrollment app
+    and the admin dashboard.
+
+    **Auth model:**
+    - Users sign up with `@rmsoft.rw` email and password.
+    - `/api/auth/login` returns an access JWT (paste it into "Authorize" below to call protected endpoints).
+servers:
+  - url: http://localhost:3000
+    description: Local dev
+  - url: https://dashboard.rmsoft.local
+    description: Reverse proxy (TLS) target
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+      required: [error]
+
+    UserPublic:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        role: { type: string, enum: [USER, ADMIN, SUPER] }
+        fullName: { type: string, nullable: true }
+      required: [id, email, role]
+
+    LoginResponse:
+      type: object
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        user: { $ref: '#/components/schemas/UserPublic' }
+      required: [accessToken, refreshToken, user]
+
+    EnrollRequest:
+      type: object
+      properties:
+        serialNumber: { type: string, minLength: 3, maxLength: 64 }
+        imei: { type: string, minLength: 8, maxLength: 20, nullable: true }
+        model: { type: string, maxLength: 100, nullable: true }
+        androidVersion: { type: string, maxLength: 20, nullable: true }
+        romBuild: { type: string, maxLength: 100, nullable: true }
+      required: [serialNumber]
+
+    EnrollResponse:
+      type: object
+      properties:
+        deviceId: { type: string, format: uuid }
+        mqtt:
+          type: object
+          properties:
+            url: { type: string }
+            username: { type: string }
+            password: { type: string }
+            commandTopic: { type: string }
+            ackTopic: { type: string }
+            locationTopic: { type: string }
+
+    Device:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        serialNumber: { type: string }
+        imei: { type: string, nullable: true }
+        model: { type: string, nullable: true }
+        androidVersion: { type: string, nullable: true }
+        romBuild: { type: string, nullable: true }
+        ownerId: { type: string, format: uuid }
+        status: { type: string, enum: [ACTIVE, LOST, WIPED, UNENROLLED] }
+        enrolledAt: { type: string, format: date-time }
+        lastSeenAt: { type: string, format: date-time, nullable: true }
+
+    LocationPing:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        deviceId: { type: string, format: uuid }
+        latitude: { type: number, format: double }
+        longitude: { type: number, format: double }
+        accuracyM: { type: number, nullable: true }
+        altitudeM: { type: number, nullable: true }
+        speedMps: { type: number, nullable: true }
+        reportedAt: { type: string, format: date-time }
+        source: { type: string, nullable: true }
+
+    Command:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        deviceId: { type: string, format: uuid }
+        issuedById: { type: string, format: uuid }
+        type:
+          type: string
+          enum: [LOCK, WIPE, LOCATE_NOW, RING, MESSAGE, UNLOCK]
+        payload: { type: object, nullable: true, additionalProperties: true }
+        status:
+          type: string
+          enum: [PENDING, SENT, ACKED, FAILED]
+        createdAt: { type: string, format: date-time }
+        sentAt: { type: string, format: date-time, nullable: true }
+        ackedAt: { type: string, format: date-time, nullable: true }
+        errorMessage: { type: string, nullable: true }
+
+    CommandRequest:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [LOCK, WIPE, LOCATE_NOW, RING, MESSAGE, UNLOCK]
+        payload:
+          type: object
+          additionalProperties: true
+          example: { message: "If found, please call +250-xxx" }
+      required: [type]
+
+paths:
+  /health:
+    get:
+      tags: [System]
+      summary: Liveness probe
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user (email must end in @rmsoft.rw)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+                fullName: { type: string, nullable: true }
+              required: [email, password]
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  email: { type: string }
+        '403': { description: Wrong email domain, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '409': { description: Email already registered, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in and get a JWT
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+              required: [email, password]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoginResponse' }
+        '401': { description: Invalid credentials, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+
+  /api/enroll:
+    post:
+      tags: [Enrollment]
+      summary: Enroll a phone (called by the on-phone RmsoftEnrollment app)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EnrollRequest' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EnrollResponse' }
+        '409': { description: Device enrolled to another user }
+
+  /api/devices:
+    get:
+      tags: [Devices]
+      summary: List devices (admins see all, users see their own)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Device' }
+
+  /api/devices/{id}:
+    get:
+      tags: [Devices]
+      summary: Device detail with recent locations + commands
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Device'
+                  - type: object
+                    properties:
+                      locations:
+                        type: array
+                        items: { $ref: '#/components/schemas/LocationPing' }
+                      commands:
+                        type: array
+                        items: { $ref: '#/components/schemas/Command' }
+        '403': { description: Forbidden }
+        '404': { description: Not found }
+
+  /api/devices/{id}/commands:
+    post:
+      tags: [Devices]
+      summary: Issue a command (LOCK / WIPE / LOCATE_NOW / RING / MESSAGE / UNLOCK)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CommandRequest' }
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Command' }
+        '403': { description: Forbidden }
+        '404': { description: Device not found }
+
+  /api/devices/{id}/mark-found:
+    post:
+      tags: [Devices]
+      summary: Mark a LOST device as ACTIVE again
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Device' }
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: System
+  - name: Auth
+  - name: Enrollment
+  - name: Devices

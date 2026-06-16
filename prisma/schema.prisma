@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Person who can log in: phone owner OR IT admin.
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  fullName     String?
+  role         Role      @default(USER)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  devices      Device[]
+  sentCommands Command[] @relation("CommandIssuer")
+}
+
+enum Role {
+  USER     // phone owner
+  ADMIN    // IT admin
+  SUPER    // super admin
+}
+
+// One row per enrolled phone.
+model Device {
+  id              String    @id @default(uuid())
+  serialNumber    String    @unique
+  imei            String?   @unique
+  model           String?
+  androidVersion  String?
+  romBuild        String?
+
+  ownerId         String
+  owner           User      @relation(fields: [ownerId], references: [id])
+
+  status          DeviceStatus @default(ACTIVE)
+  enrolledAt      DateTime  @default(now())
+  lastSeenAt      DateTime?
+
+  // MQTT credentials specific to this device.
+  mqttUsername    String    @unique
+  mqttPasswordHash String
+
+  commands        Command[]
+  locations       LocationPing[]
+}
+
+enum DeviceStatus {
+  ACTIVE
+  LOST       // marked lost — full MDM mode
+  WIPED      // wipe issued and acknowledged
+  UNENROLLED
+}
+
+// MDM commands sent to a device (lock, wipe, locate, ring, message).
+model Command {
+  id           String        @id @default(uuid())
+  deviceId     String
+  device       Device        @relation(fields: [deviceId], references: [id])
+  issuedById   String
+  issuedBy     User          @relation("CommandIssuer", fields: [issuedById], references: [id])
+
+  type         CommandType
+  payload      Json?
+  status       CommandStatus @default(PENDING)
+  createdAt    DateTime      @default(now())
+  sentAt       DateTime?
+  ackedAt      DateTime?
+  errorMessage String?
+}
+
+enum CommandType {
+  LOCK
+  WIPE
+  LOCATE_NOW
+  RING
+  MESSAGE
+  UNLOCK
+}
+
+enum CommandStatus {
+  PENDING
+  SENT
+  ACKED
+  FAILED
+}
+
+// Location pings reported by phones.
+model LocationPing {
+  id         String   @id @default(uuid())
+  deviceId   String
+  device     Device   @relation(fields: [deviceId], references: [id])
+  latitude   Float
+  longitude  Float
+  accuracyM  Float?
+  altitudeM  Float?
+  speedMps   Float?
+  reportedAt DateTime @default(now())
+  source     String?
+
+  @@index([deviceId, reportedAt])
+}

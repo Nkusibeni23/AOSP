@@ -1,0 +1,10 @@
+node_modules/
+.env
+.env.local
+*.log
+mosquitto/data/
+mosquitto/log/
+prisma/migrations/dev.db*
+.DS_Store
+dist/
+coverage/
