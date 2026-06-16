@@ -10,6 +10,8 @@ info:
     - Users sign up with `@rmsoft.rw` email and password.
     - `/api/auth/login` returns an access JWT (paste it into "Authorize" below to call protected endpoints).
 servers:
+  - url: https://aosp-production.up.railway.app
+    description: Production (Railway)
   - url: http://localhost:3000
     description: Local dev
   - url: https://dashboard.rmsoft.local
@@ -43,7 +45,7 @@ components:
       properties:
         accessToken: { type: string }
         refreshToken: { type: string }
-        user: { $ref: '#/components/schemas/UserPublic' }
+        user: { $ref: "#/components/schemas/UserPublic" }
       required: [accessToken, refreshToken, user]
 
     EnrollRequest:
@@ -134,7 +136,7 @@ paths:
       summary: Liveness probe
       security: []
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
@@ -160,7 +162,7 @@ paths:
                 fullName: { type: string, nullable: true }
               required: [email, password]
       responses:
-        '201':
+        "201":
           description: Created
           content:
             application/json:
@@ -169,8 +171,24 @@ paths:
                 properties:
                   id: { type: string, format: uuid }
                   email: { type: string }
-        '403': { description: Wrong email domain, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
-        '409': { description: Email already registered, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        "403":
+          {
+            description: Wrong email domain,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/Error" } },
+              },
+          }
+        "409":
+          {
+            description: Email already registered,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/Error" } },
+              },
+          }
 
   /api/auth/login:
     post:
@@ -188,12 +206,20 @@ paths:
                 password: { type: string }
               required: [email, password]
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/LoginResponse' }
-        '401': { description: Invalid credentials, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+              schema: { $ref: "#/components/schemas/LoginResponse" }
+        "401":
+          {
+            description: Invalid credentials,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/Error" } },
+              },
+          }
 
   /api/enroll:
     post:
@@ -203,27 +229,27 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/EnrollRequest' }
+            schema: { $ref: "#/components/schemas/EnrollRequest" }
       responses:
-        '201':
+        "201":
           description: Created
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/EnrollResponse' }
-        '409': { description: Device enrolled to another user }
+              schema: { $ref: "#/components/schemas/EnrollResponse" }
+        "409": { description: Device enrolled to another user }
 
   /api/devices:
     get:
       tags: [Devices]
       summary: List devices (admins see all, users see their own)
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
                 type: array
-                items: { $ref: '#/components/schemas/Device' }
+                items: { $ref: "#/components/schemas/Device" }
 
   /api/devices/{id}:
     get:
@@ -235,23 +261,23 @@ paths:
           required: true
           schema: { type: string, format: uuid }
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/Device'
+                  - $ref: "#/components/schemas/Device"
                   - type: object
                     properties:
                       locations:
                         type: array
-                        items: { $ref: '#/components/schemas/LocationPing' }
+                        items: { $ref: "#/components/schemas/LocationPing" }
                       commands:
                         type: array
-                        items: { $ref: '#/components/schemas/Command' }
-        '403': { description: Forbidden }
-        '404': { description: Not found }
+                        items: { $ref: "#/components/schemas/Command" }
+        "403": { description: Forbidden }
+        "404": { description: Not found }
 
   /api/devices/{id}/commands:
     post:
@@ -266,15 +292,15 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/CommandRequest' }
+            schema: { $ref: "#/components/schemas/CommandRequest" }
       responses:
-        '202':
+        "202":
           description: Accepted
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Command' }
-        '403': { description: Forbidden }
-        '404': { description: Device not found }
+              schema: { $ref: "#/components/schemas/Command" }
+        "403": { description: Forbidden }
+        "404": { description: Device not found }
 
   /api/devices/{id}/mark-found:
     post:
@@ -286,11 +312,11 @@ paths:
           required: true
           schema: { type: string, format: uuid }
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Device' }
+              schema: { $ref: "#/components/schemas/Device" }
 
 security:
   - bearerAuth: []
