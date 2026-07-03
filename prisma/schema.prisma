@@ -31,6 +31,8 @@ enum Role {
 model Device {
   id              String    @id @default(uuid())
   serialNumber    String    @unique
+  hardwareSerial  String?   // real HW serial (readable once the agent is Device Owner)
+  ownerLabel      String?   // name shown on the lock screen (set from the dashboard)
   imei            String?   @unique
   model           String?
   androidVersion  String?
@@ -58,7 +60,7 @@ enum DeviceStatus {
   UNENROLLED
 }
 
-// MDM commands sent to a device (lock, wipe, locate, ring, message).
+// MDM commands sent to a device (lock, wipe, locate, ring, message, set-owner).
 model Command {
   id           String        @id @default(uuid())
   deviceId     String
@@ -82,6 +84,7 @@ enum CommandType {
   RING
   MESSAGE
   UNLOCK
+  SET_OWNER
 }
 
 enum CommandStatus {

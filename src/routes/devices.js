@@ -41,7 +41,7 @@ devicesRouter.get('/:id', async (req, res) => {
 });
 
 const CommandBody = z.object({
-  type: z.enum(['LOCK', 'WIPE', 'LOCATE_NOW', 'RING', 'MESSAGE', 'UNLOCK']),
+  type: z.enum(['LOCK', 'WIPE', 'LOCATE_NOW', 'RING', 'MESSAGE', 'UNLOCK', 'SET_OWNER']),
   payload: z.record(z.any()).optional(),
 });
 
@@ -75,6 +75,14 @@ devicesRouter.post('/:id/commands', async (req, res) => {
     });
   }
 
+  // Remember the owner name we pushed to the lock screen.
+  if (type === 'SET_OWNER' && payload?.name) {
+    await prisma.device.update({
+      where: { id: device.id },
+      data: { ownerLabel: String(payload.name) },
+    });
+  }
+
   await publishCommand(device.id, {
     cmdId: command.id,
     type,
@@ -88,6 +96,20 @@ devicesRouter.post('/:id/commands', async (req, res) => {
   });
 
   res.status(202).json(command);
+});
+
+// Remove a device (and its commands + location history). Used to clean up
+// duplicate records left behind by wipe/re-enroll cycles.
+devicesRouter.delete('/:id', async (req, res) => {
+  const device = await prisma.device.findUnique({ where: { id: req.params.id } });
+  if (!device) return res.status(404).json({ error: 'not found' });
+  if (device.ownerId !== req.auth.sub && !['ADMIN', 'SUPER'].includes(req.auth.role)) {
+    return res.status(403).json({ error: 'forbidden' });
+  }
+  await prisma.command.deleteMany({ where: { deviceId: device.id } });
+  await prisma.locationPing.deleteMany({ where: { deviceId: device.id } });
+  await prisma.device.delete({ where: { id: device.id } });
+  res.status(204).end();
 });
 
 devicesRouter.post('/:id/mark-found', async (req, res) => {
