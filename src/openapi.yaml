@@ -51,11 +51,27 @@ components:
     EnrollRequest:
       type: object
       properties:
-        serialNumber: { type: string, minLength: 3, maxLength: 64, example: "1A2B3C4D5E6F" }
-        imei: { type: string, minLength: 8, maxLength: 20, nullable: true, example: "356938035643809" }
-        model: { type: string, maxLength: 100, nullable: true, example: "Pixel 8" }
-        androidVersion: { type: string, maxLength: 20, nullable: true, example: "14" }
-        romBuild: { type: string, maxLength: 100, nullable: true, example: "rmsoft-os-1.0.0" }
+        serialNumber:
+          { type: string, minLength: 3, maxLength: 64, example: "1A2B3C4D5E6F" }
+        imei:
+          {
+            type: string,
+            minLength: 8,
+            maxLength: 20,
+            nullable: true,
+            example: "356938035643809",
+          }
+        model:
+          { type: string, maxLength: 100, nullable: true, example: "Pixel 8" }
+        androidVersion:
+          { type: string, maxLength: 20, nullable: true, example: "14" }
+        romBuild:
+          {
+            type: string,
+            maxLength: 100,
+            nullable: true,
+            example: "rmsoft-os-1.0.0",
+          }
       required: [serialNumber]
 
     EnrollResponse:
@@ -158,9 +174,12 @@ paths:
             schema:
               type: object
               properties:
-                email: { type: string, format: email, example: "alice@rmsoft.rw" }
-                password: { type: string, minLength: 8, example: "S3curePass!23" }
-                fullName: { type: string, nullable: true, example: "Alice Mukamana" }
+                email:
+                  { type: string, format: email, example: "alice@rmsoft.rw" }
+                password:
+                  { type: string, minLength: 8, example: "S3curePass!23" }
+                fullName:
+                  { type: string, nullable: true, example: "Alice Mukamana" }
               required: [email, password]
       responses:
         "201":
@@ -203,7 +222,8 @@ paths:
             schema:
               type: object
               properties:
-                email: { type: string, format: email, example: "alice@rmsoft.rw" }
+                email:
+                  { type: string, format: email, example: "alice@rmsoft.rw" }
                 password: { type: string, example: "S3curePass!23" }
               required: [email, password]
       responses:
