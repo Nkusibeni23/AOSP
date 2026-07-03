@@ -4,6 +4,9 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { signAccess, signRefresh } from '../lib/jwt.js';
 import { config } from '../lib/config.js';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
 
 export const authRouter = Router();
 
