@@ -1,7 +1,7 @@
 {
   "name": "rmsoft-server",
   "version": "0.1.0",
-  "description": "RMSoft OS dashboard backend \u2014 device enrollment, MDM commands, location tracking",
+  "description": "RMSoft OS dashboard backend — device enrollment, MDM commands, location tracking",
   "private": true,
   "type": "module",
   "engines": {
@@ -26,6 +26,7 @@
     "@prisma/client": "^5.20.0",
     "argon2": "^0.40.3",
     "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
     "express": "^4.21.0",
     "express-rate-limit": "^7.4.0",
     "helmet": "^7.1.0",
