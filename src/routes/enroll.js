@@ -10,6 +10,7 @@ export const enrollRouter = Router();
 
 const EnrollBody = z.object({
   serialNumber: z.string().min(3).max(64),
+  hardwareSerial: z.string().max(64).optional(),
   imei: z.string().min(8).max(20).optional(),
   model: z.string().max(100).optional(),
   androidVersion: z.string().max(20).optional(),
@@ -24,7 +25,7 @@ enrollRouter.post('/enroll', requireAuth, async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: 'invalid body', detail: parsed.error.flatten() });
   }
-  const { serialNumber, imei, model, androidVersion, romBuild } = parsed.data;
+  const { serialNumber, hardwareSerial, imei, model, androidVersion, romBuild } = parsed.data;
 
   const ownerId = req.auth.sub;
 
@@ -40,9 +41,10 @@ enrollRouter.post('/enroll', requireAuth, async (req, res) => {
 
   const device = await prisma.device.upsert({
     where: { serialNumber },
-    update: { imei, model, androidVersion, romBuild, lastSeenAt: new Date() },
+    update: { hardwareSerial, imei, model, androidVersion, romBuild, lastSeenAt: new Date() },
     create: {
       serialNumber,
+      hardwareSerial,
       imei,
       model,
       androidVersion,
