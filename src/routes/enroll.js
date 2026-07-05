@@ -29,31 +29,57 @@ enrollRouter.post('/enroll', requireAuth, async (req, res) => {
 
   const ownerId = req.auth.sub;
 
-  const existing = await prisma.device.findUnique({ where: { serialNumber } });
+  // Stable identity: the same physical phone must always map to ONE record — no duplicates across
+  // wipes/re-enrolls. The hardware serial is constant per device; ANDROID_ID-based serialNumbers
+  // change on wipe and used to spawn a new record every time. So dedupe by hardwareSerial first,
+  // then fall back to serialNumber.
+  let existing = null;
+  if (hardwareSerial) {
+    existing = await prisma.device.findFirst({ where: { hardwareSerial } });
+  }
+  if (!existing) {
+    existing = await prisma.device.findUnique({ where: { serialNumber } });
+  }
   if (existing && existing.ownerId !== ownerId) {
     return res.status(409).json({ error: 'device already enrolled to a different user' });
   }
 
-  // MQTT credentials baked into the phone — used only for the broker, not API.
+  // Fresh MQTT credentials each enroll — persisted so the returned creds always match the DB hash.
   const mqttUsername = `dev_${crypto.randomBytes(8).toString('hex')}`;
   const mqttPassword = crypto.randomBytes(24).toString('base64url');
   const mqttPasswordHash = await argon2.hash(mqttPassword);
 
-  const device = await prisma.device.upsert({
-    where: { serialNumber },
-    update: { hardwareSerial, imei, model, androidVersion, romBuild, lastSeenAt: new Date() },
-    create: {
-      serialNumber,
-      hardwareSerial,
-      imei,
-      model,
-      androidVersion,
-      romBuild,
-      ownerId,
-      mqttUsername,
-      mqttPasswordHash,
-    },
-  });
+  let device;
+  if (existing) {
+    // Same phone re-enrolling — update in place (never create a duplicate).
+    device = await prisma.device.update({
+      where: { id: existing.id },
+      data: {
+        hardwareSerial: hardwareSerial ?? existing.hardwareSerial,
+        imei,
+        model,
+        androidVersion,
+        romBuild,
+        mqttUsername,
+        mqttPasswordHash,
+        lastSeenAt: new Date(),
+      },
+    });
+  } else {
+    device = await prisma.device.create({
+      data: {
+        serialNumber,
+        hardwareSerial,
+        imei,
+        model,
+        androidVersion,
+        romBuild,
+        ownerId,
+        mqttUsername,
+        mqttPasswordHash,
+      },
+    });
+  }
 
   return res.status(201).json({
     deviceId: device.id,
