@@ -41,7 +41,14 @@ devicesRouter.get('/:id', async (req, res) => {
 });
 
 const CommandBody = z.object({
-  type: z.enum(['LOCK', 'WIPE', 'LOCATE_NOW', 'RING', 'MESSAGE', 'UNLOCK', 'SET_OWNER']),
+  type: z.enum([
+    // Anti-theft
+    'LOCK', 'WIPE', 'LOCATE_NOW', 'RING', 'MESSAGE', 'UNLOCK', 'SET_OWNER',
+    // Kiosk & fleet control (unified RMLauncher agent)
+    'REBOOT', 'REAPPLY_POLICIES', 'ENTER_KIOSK', 'EXIT_KIOSK',
+    'SET_CAMERA_DISABLED', 'SET_STATUS_BAR_DISABLED', 'SET_KEYGUARD_DISABLED',
+    'SET_WHITELIST', 'SET_APP_HIDDEN', 'ENABLE_SYSTEM_APP', 'INSTALL_APK', 'UPDATE_APP',
+  ]),
   payload: z.record(z.any()).optional(),
 });
 
