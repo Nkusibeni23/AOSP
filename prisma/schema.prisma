@@ -45,6 +45,19 @@ model Device {
   enrolledAt      DateTime  @default(now())
   lastSeenAt      DateTime?
 
+  // Live telemetry (reported over MQTT heartbeat).
+  batteryLevel      Int?      // 0-100
+  kioskActive       Boolean?  // locked into approved apps
+  cameraDisabled    Boolean?
+  statusBarDisabled Boolean?
+  keyguardDisabled  Boolean?
+  telemetryAt       DateTime? // when the above were last reported
+
+  // Anti-theft alerts (e.g. SIM swap detected on device).
+  lastAlertType   String?     // e.g. "SIM_SWAP"
+  lastAlertAt     DateTime?
+  lastAlertInfo   String?     // human-readable detail
+
   // MQTT credentials specific to this device.
   mqttUsername    String    @unique
   mqttPasswordHash String
@@ -85,6 +98,19 @@ enum CommandType {
   MESSAGE
   UNLOCK
   SET_OWNER
+  // Kiosk & fleet control (unified RMLauncher agent)
+  REBOOT
+  REAPPLY_POLICIES
+  ENTER_KIOSK
+  EXIT_KIOSK
+  SET_CAMERA_DISABLED
+  SET_STATUS_BAR_DISABLED
+  SET_KEYGUARD_DISABLED
+  SET_WHITELIST
+  SET_APP_HIDDEN
+  ENABLE_SYSTEM_APP
+  INSTALL_APK
+  UPDATE_APP
 }
 
 enum CommandStatus {
