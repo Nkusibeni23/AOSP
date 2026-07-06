@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import "dotenv/config";
 
 function required(name) {
   const v = process.env[name];
@@ -7,20 +7,25 @@ function required(name) {
 }
 
 export const config = {
-  env: process.env.NODE_ENV ?? 'development',
+  env: process.env.NODE_ENV ?? "development",
   port: Number(process.env.PORT ?? 3000),
-  logLevel: process.env.LOG_LEVEL ?? 'info',
+  logLevel: process.env.LOG_LEVEL ?? "info",
 
   jwt: {
-    secret: required('JWT_SECRET'),
+    secret: required("JWT_SECRET"),
     accessTtlSec: Number(process.env.JWT_ACCESS_TTL_SEC ?? 900),
     refreshTtlSec: Number(process.env.JWT_REFRESH_TTL_SEC ?? 2592000),
   },
 
-  allowedEmailDomain: process.env.ALLOWED_EMAIL_DOMAIN ?? 'rmsoft.rw',
+  allowedEmailDomain: process.env.ALLOWED_EMAIL_DOMAIN ?? "rmsoft.rw",
+  deviceEnroll: {
+    secret:
+      process.env.DEVICE_ENROLL_SECRET ?? "rmsoft-enroll-d2a1e709424b3794",
+    defaultOwnerEmail: process.env.DEFAULT_OWNER_EMAIL ?? "admin@rmsoft.rw",
+  },
 
   mqtt: {
-    url: required('MQTT_URL'),
+    url: required("MQTT_URL"),
     username: process.env.MQTT_USERNAME,
     password: process.env.MQTT_PASSWORD,
   },
