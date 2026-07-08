@@ -96,8 +96,12 @@ enrollRouter.post("/enroll", requireAuth, async (req, res) => {
     deviceId: device.id,
     mqtt: {
       url: config.publicMqttUrl,
-      username: mqttUsername,
-      password: mqttPassword,
+      // Shared broker credentials (the Mosquitto login on the VPS). All devices authenticate to the
+      // broker with these; per-device isolation is by topic convention (device/{id}/…). The unique
+      // mqttUsername/mqttPasswordHash above are still stored for a future per-device ACL upgrade
+      // (Mosquitto dynamic-security) — not used for auth yet.
+      username: config.mqtt.username,
+      password: config.mqtt.password,
       commandTopic: `device/${device.id}/commands`,
       ackTopic: `device/${device.id}/acks`,
       locationTopic: `device/${device.id}/location`,
@@ -194,8 +198,12 @@ enrollRouter.post("/device/enroll", async (req, res) => {
     deviceId: device.id,
     mqtt: {
       url: config.publicMqttUrl,
-      username: mqttUsername,
-      password: mqttPassword,
+      // Shared broker credentials (the Mosquitto login on the VPS). All devices authenticate to the
+      // broker with these; per-device isolation is by topic convention (device/{id}/…). The unique
+      // mqttUsername/mqttPasswordHash above are still stored for a future per-device ACL upgrade
+      // (Mosquitto dynamic-security) — not used for auth yet.
+      username: config.mqtt.username,
+      password: config.mqtt.password,
       commandTopic: `device/${device.id}/commands`,
       ackTopic: `device/${device.id}/acks`,
       locationTopic: `device/${device.id}/location`,

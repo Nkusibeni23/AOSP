@@ -18,6 +18,10 @@ export function startMqtt() {
     password: config.mqtt.password,
     clientId: `rmsoft-server-${process.pid}`,
     reconnectPeriod: 2000,
+    // Our Mosquitto broker uses a self-signed cert (mqtts:// URL). The link is TLS-encrypted, but
+    // our own CA isn't a public root — so accept it. MQTT_USERNAME/PASSWORD is what authenticates
+    // the server to the broker. Harden later by shipping the CA and dropping this flag.
+    rejectUnauthorized: false,
   });
 
   client.on('connect', () => {
