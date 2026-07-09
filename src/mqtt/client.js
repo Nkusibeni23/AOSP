@@ -170,6 +170,17 @@ async function geolocate({ wifiAccessPoints, cellTowers }) {
 }
 
 async function handleHeartbeat(deviceId, payload) {
+  // Self-heal: if this device was deleted from the dashboard, its heartbeat has no record to update.
+  // Tell the phone to re-register — it enrolls fresh (dedup by serial) and reappears within ~1 min,
+  // no adb / no reset. Turns "delete" into a clean "reset this device's record".
+  const exists = await prisma.device
+    .findUnique({ where: { id: deviceId }, select: { id: true } })
+    .catch(() => null);
+  if (!exists) {
+    await publishCommand(deviceId, { cmdId: `reenroll:${deviceId}`, type: 'RE_ENROLL', payload: {} });
+    return;
+  }
+
   const data = { lastSeenAt: new Date() };
   // Telemetry may piggyback on the heartbeat.
   if (payload && typeof payload === 'object') {
