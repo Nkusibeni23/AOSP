@@ -31,4 +31,10 @@ export const config = {
   },
 
   publicMqttUrl: process.env.PUBLIC_MQTT_URL ?? process.env.MQTT_URL,
+
+  // Network (WiFi/cell) location — resolves a device's scan to lat/lng so LOCATE works INDOORS.
+  // Uses the Google Geolocation API; you can enable it on your existing Google Maps Platform key.
+  geolocation: {
+    googleApiKey: process.env.GOOGLE_GEOLOCATION_API_KEY ?? process.env.GOOGLE_MAPS_KEY,
+  },
 };

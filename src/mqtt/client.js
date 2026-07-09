@@ -30,6 +30,7 @@ export function startMqtt() {
     client.subscribe('device/+/location', { qos: 0 });
     client.subscribe('device/+/heartbeat', { qos: 0 });
     client.subscribe('device/+/events', { qos: 1 });
+    client.subscribe('device/+/scan', { qos: 1 });
   });
 
   client.on('error', (err) => {
@@ -39,7 +40,7 @@ export function startMqtt() {
   client.on('message', async (topic, message) => {
     try {
       const payload = JSON.parse(message.toString());
-      const match = topic.match(/^device\/([^/]+)\/(acks|location|heartbeat|events)$/);
+      const match = topic.match(/^device\/([^/]+)\/(acks|location|heartbeat|events|scan)$/);
       if (!match) return;
       const [, deviceId, kind] = match;
 
@@ -51,6 +52,8 @@ export function startMqtt() {
         await handleHeartbeat(deviceId, payload);
       } else if (kind === 'events') {
         await handleEvent(deviceId, payload);
+      } else if (kind === 'scan') {
+        await handleScan(deviceId, payload);
       }
     } catch (err) {
       logger.error({ err, topic }, 'mqtt message handler failed');
@@ -91,6 +94,79 @@ async function handleLocation(deviceId, payload) {
     where: { id: deviceId },
     data: { lastSeenAt: new Date() },
   }).catch(() => {});
+}
+
+/**
+ * Network location: the phone (which has no Google Play Services) sends its nearby WiFi + cell-tower
+ * scan; we resolve it to lat/lng via the Google Geolocation API. This is what makes LOCATE work
+ * INDOORS (where GPS can't). The phone sends Google's own request shape ({wifi:[…], cells:[…]}); we
+ * forward it, store the fix as a location ping (source "network"), and ack the LOCATE command.
+ */
+async function handleScan(deviceId, payload) {
+  const wifiAccessPoints = Array.isArray(payload?.wifi) ? payload.wifi : [];
+  const cellTowers = Array.isArray(payload?.cells) ? payload.cells : [];
+  if (wifiAccessPoints.length === 0 && cellTowers.length === 0) return;
+
+  const fix = await geolocate({ wifiAccessPoints, cellTowers });
+  if (!fix) {
+    if (payload?.cmdId) {
+      await prisma.command.update({
+        where: { id: payload.cmdId },
+        data: { status: 'FAILED', ackedAt: new Date(), errorMessage: 'network resolve failed' },
+      }).catch(() => {});
+    }
+    return;
+  }
+
+  await prisma.locationPing.create({
+    data: { deviceId, latitude: fix.lat, longitude: fix.lng, accuracyM: fix.accuracy, source: 'network' },
+  });
+  await prisma.device.update({
+    where: { id: deviceId },
+    data: { lastSeenAt: new Date() },
+  }).catch(() => {});
+
+  // Ack the LOCATE_NOW that triggered this scan, so the dashboard shows it delivered.
+  if (payload?.cmdId) {
+    await prisma.command.update({
+      where: { id: payload.cmdId },
+      data: { status: 'ACKED', ackedAt: new Date(), errorMessage: null },
+    }).catch(() => {});
+  }
+  logger.info({ deviceId, accuracy: fix.accuracy, wifi: wifiAccessPoints.length, cells: cellTowers.length }, 'network location resolved');
+}
+
+/**
+ * Resolve a WiFi/cell scan to a position via the Google Geolocation API. Accurate worldwide (incl.
+ * regions where community DBs are sparse) and works indoors. Returns null on any failure so LOCATE
+ * degrades gracefully to GPS-only. considerIp:false so a VPN/proxy IP can't skew the fix.
+ */
+async function geolocate({ wifiAccessPoints, cellTowers }) {
+  const key = config.geolocation?.googleApiKey;
+  if (!key) {
+    logger.warn('GOOGLE_GEOLOCATION_API_KEY not set — network location disabled');
+    return null;
+  }
+  const body = { considerIp: false };
+  if (wifiAccessPoints.length) body.wifiAccessPoints = wifiAccessPoints;
+  if (cellTowers.length) body.cellTowers = cellTowers;
+  try {
+    const res = await fetch(`https://www.googleapis.com/geolocation/v1/geolocate?key=${key}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      logger.warn({ status: res.status }, 'geolocation api non-200');
+      return null;
+    }
+    const data = await res.json();
+    if (typeof data?.location?.lat !== 'number' || typeof data?.location?.lng !== 'number') return null;
+    return { lat: data.location.lat, lng: data.location.lng, accuracy: data.accuracy ?? null };
+  } catch (err) {
+    logger.error({ err }, 'geolocation api error');
+    return null;
+  }
 }
 
 async function handleHeartbeat(deviceId, payload) {
