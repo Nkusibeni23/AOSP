@@ -9,9 +9,8 @@
   },
   "scripts": {
     "dev": "node --watch src/index.js",
-    "start": "node src/index.js",
+    "start": "prisma migrate deploy && node src/index.js",
     "postinstall": "prisma generate",
-    "railway:start": "prisma migrate deploy && node src/index.js",
     "db:up": "docker compose up -d postgres mosquitto redis",
     "db:down": "docker compose down",
     "db:logs": "docker compose logs -f",

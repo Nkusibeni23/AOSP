@@ -10,8 +10,6 @@ info:
     - Users sign up with `@rmsoft.rw` email and password.
     - `/api/auth/login` returns an access JWT (paste it into "Authorize" below to call protected endpoints).
 servers:
-  - url: https://aosp-production.up.railway.app
-    description: Production (Railway)
   - url: http://localhost:3000
     description: Local dev
   - url: https://dashboard.rmsoft.local
